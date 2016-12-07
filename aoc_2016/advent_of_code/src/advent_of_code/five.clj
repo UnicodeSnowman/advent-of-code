@@ -14,11 +14,13 @@
 
 (get-hash i c)
 
-(def find-pattern #(re-find (re-pattern (str "^" 00000 "([0-9])")) %))
+(def find-pattern #(re-find #"^00000([0-9])" %))
 
-(take 8
+(take 1
   (filter
     #(find-pattern %)
     (map #(get-hash i %) (range))))
 
-(find-pattern (first (map #(get-hash i %) [5017308])))
+(find-pattern (first (map #(get-hash i %) [3231929])))
+(find-pattern "08b23036b")
+(take 8 (map #(get-hash i %) (range)))
