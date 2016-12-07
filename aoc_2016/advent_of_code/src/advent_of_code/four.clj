@@ -994,15 +994,26 @@
   "wfintfhynaj-idj-qfgtwfytwd-229[efudw]"
   "yhwooebeaz-nwilwcejc-ydkykhwpa-owhao-160[skuyi]"])
 
-(def parsed-names
-  (map #() room-names))
+(defn parse-encrypted-room [value]
+  (let [parts (split value #"-")
+        frequency-pairs (into [] (-> (butlast parts)
+                                     (join)
+                                     (split #"")
+                                     (frequencies)))
+        [_ sector-id checksum] (first (re-seq #"([0-9]+)\[([a-z]+)\]" (last parts)))]
+     {:name (->> frequency-pairs
+                (sort-by #(vec [(- (second %)) (first %)]))
+                (take 5)
+                (map first)
+                (join))
+     :sector-id (Integer. sector-id)
+     :checksum checksum}))
 
-(let [parts (split "aczupnetwp-dnlgpyrpc-sfye-dstaatyr-561[patyc]" #"-")
-      letters (into [] (-> (butlast parts)
-                           (join)
-                           (split #"")
-                           (frequencies)))
-      code (last parts)]
-  (prn (sort-by (fn [[_ n]] (- n)) letters)))
+(defn is-valid [{:keys [name checksum]}]
+  (= name checksum))
 
+(reduce #(let [room (parse-encrypted-room %2)]
+            (if (is-valid room)
+              (+ %1 (:sector-id room))
+              %1)) 0 room-names)
 
