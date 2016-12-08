@@ -1,26 +1,22 @@
-(ns advent-of-code.five)
+(ns advent-of-code.five
+  (:require [clojure.string :refer [join]]))
 
-(def input "abbhdwsy")
-
-(def i "abc")
-(def c 5017308)
-
-(defn get-hash [prefix suffix]
+(defn compute-hash [prefix suffix]
   (apply str
     (map (partial format "%02x")
       (.digest (doto (java.security.MessageDigest/getInstance "MD5")
                  .reset
                  (.update (.getBytes (str prefix suffix))))))))
 
-(get-hash i c)
+(def find-pattern #(re-find #"^00000([0-9a-f])" %))
 
-(def find-pattern #(re-find #"^00000([0-9])" %))
+(defn the-password-is [input]
+  (->> (range)
+       (map #(compute-hash input %))
+       (filter #(find-pattern %))
+       (take 8)
+       (map (comp second find-pattern))
+       (join)))
 
-(take 1
-  (filter
-    #(find-pattern %)
-    (map #(get-hash i %) (range))))
+(the-password-is "abbhdwsy")
 
-(find-pattern (first (map #(get-hash i %) [3231929])))
-(find-pattern "08b23036b")
-(take 8 (map #(get-hash i %) (range)))
