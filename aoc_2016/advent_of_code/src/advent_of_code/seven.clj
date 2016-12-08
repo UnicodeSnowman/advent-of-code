@@ -1,4 +1,5 @@
-(ns advent-of-code.seven)
+(ns advent-of-code.seven
+  (:require [clojure.string :as string]))
 
 ;rhamaeovmbheijj[hkwbkqzlcscwjkyjulk]ajsxfuemamuqcjccbc
 ;gdlrknrmexvaypu[crqappbbcaplkkzb]vhvkjyadjsryysvj[nbvypeadikilcwg]jwxlimrgakadpxu[dgoanojvdvwfabtt]yqsalmulblolkgsheo
@@ -2000,3 +2001,17 @@
 ;btrucplpxrokmcts[gytdxlzkfakenliallw]qhxznozsjsvhvnzhf
 ;nefefqadkmytguyp[ucqagcoyxinbrvbw]neksoxgtnnfojobtx[bxhdwvwfhybtbzkijj]poayieifsaocrboesfe[tnggfefcucifowqp]olmjwaqlaiwkkbtruw
 ;tivudfusgnewzshs[mausfjbgxmyibin]yponuityptavbhekrlg[qeyafuevtlqemtfa]owtdxadrwwbxbrkl[obfcyxbifipwhduubu]mjocivgvrcbrllso
+
+; abba[mnop]qrst supports TLS (abba outside square brackets).
+; abcd[bddb]xyyx does not support TLS (bddb is within square brackets, even though xyyx is outside square brackets).
+; aaaa[qwer]tyui does not support TLS (aaaa is invalid; the interior characters must be different).
+; ioxxoj[asdfgh]zxcvbn supports TLS (oxxo is outside square brackets, even though it's within a larger string).
+
+; How many IPs in your puzzle input support TLS?
+
+(let [groups (partition 4 1 "ioxxoj")
+      first-group (string/join (first groups))]
+  (and
+    (apply not= first-group)
+    (= (subs first-group 0 2)
+       (string/reverse (subs first-group 2)))))
