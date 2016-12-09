@@ -167,7 +167,7 @@
 
 (def screen (->> "." (repeat 50) vec (repeat 6) vec))
 
-(def build-rect-coords #(for [x (range (Integer. %1)) y (range (Integer. %2))] [y x]))
+(def build-rect-coords #(for [x (range (Integer. %1)) y (range (Integer. %2))] [x y]))
 
 (defmulti action (fn [acc c] (first (split c #" "))))
 (defmethod action "rect" [acc c]
@@ -175,7 +175,7 @@
                   (split #" ")
                   (second)
                   (split #"x"))]
-    (reduce #(assoc-in %1 %2 "#") acc (build-rect-coords x y))))
+    (reduce #(assoc-in %1 (reverse %2) "#") acc (build-rect-coords x y))))
 
 (defmethod action "rotate" [acc c]
   (let [[_ x-or-y n shift] (re-find #"rotate \w+ ([x|y])=([0-9]+) by ([0-9]+)" c)]
