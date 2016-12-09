@@ -165,9 +165,14 @@
   "rotate column x=2 by 5"
   "rotate column x=1 by 5"])
 
-(def screen (->> "." (repeat 50) vec (repeat 6) vec))
+(def dimensions {:y 50 :x 6})
 
-(def build-rect-coords #(for [x (range (Integer. %1)) y (range (Integer. %2))] [x y]))
+(def screen (->> "." (repeat (:y dimensions)) vec (repeat (:x dimensions)) vec))
+
+(def build-rect-coords #(for [x (range (Integer. %1)) y (range (Integer. %2))] {:x x :y y :val "#"}))
+
+(defn update-screen [screen {:keys [x y val]}]
+  (assoc-in screen [y x] val))
 
 (defmulti action (fn [acc c] (first (split c #" "))))
 (defmethod action "rect" [acc c]
@@ -175,14 +180,29 @@
                   (split #" ")
                   (second)
                   (split #"x"))]
-    (reduce #(assoc-in %1 (reverse %2) "#") acc (build-rect-coords x y))))
+    (reduce update-screen acc (build-rect-coords x y))))
 
 (defmethod action "rotate" [acc c]
-  (let [[_ x-or-y n shift] (re-find #"rotate \w+ ([x|y])=([0-9]+) by ([0-9]+)" c)]
-    {:x-or-y x-or-y
-     :n n
-     :shift shift})
-  ; TODO handle shifting!
+  (let [[_ x-or-y n shift] (re-find #"rotate \w+ ([x|y])=([0-9]+) by ([0-9]+)" c)
+        num-items ((keyword x-or-y) dimensions)
+        coords (map (fn [[x y]]
+                      {:x x :y y :val (get-in acc [y x])})
+                    (range num-items)
+                    (repeatedly (constantly n)))]
+    (reduce update-screen acc (shift x-or-y n coords)))
   acc)
+
+; shift y: [y 0] [y 1] [y 2] ... 50 items
+; shift x: [0 x] [1 x] [2 x] ... 6 items
+;"rotate row y=0 by 6"
+
+(defn shift [x-or-y n coords]
+  (map (fn [{:keys [x y val]}]
+         {:val val
+          :y y
+          :x (nth
+               (cycle (range (Integer. (x-or-y dimensions))))
+               (+ n x))})
+       coords))
 
 (reduce action screen instructions)
