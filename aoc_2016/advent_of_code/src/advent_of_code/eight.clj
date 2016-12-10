@@ -163,46 +163,84 @@
   "rotate column x=10 by 1"
   "rotate column x=8 by 1"
   "rotate column x=2 by 5"
-  "rotate column x=1 by 5"])
+  "rotate column x=1 by 5"
+])
 
-(def dimensions {:y 50 :x 6})
-
-(def screen (->> "." (repeat (:y dimensions)) vec (repeat (:x dimensions)) vec))
-
+(def dimensions {:x 50 :y 6})
+(def screen (->> "." (repeat (:x dimensions)) vec (repeat (:y dimensions)) vec))
 (def build-rect-coords #(for [x (range (Integer. %1)) y (range (Integer. %2))] {:x x :y y :val "#"}))
 
 (defn update-screen [screen {:keys [x y val]}]
   (assoc-in screen [y x] val))
 
-(defmulti action (fn [acc c] (first (split c #" "))))
-(defmethod action "rect" [acc c]
+; after shifting past end of row, start back at beginning...
+(defn shift [v amt row-length]
+  (nth
+    (cycle (range row-length))
+    (+ v amt)))
+
+(defn shift-x [num-values shift-amt coords]
+  (map (fn [{:keys [x y val]}]
+         {:val val
+          :x (shift x shift-amt num-values)
+          :y y})
+       coords))
+
+(defn shift-y [num-values shift-amt coords]
+  (map (fn [{:keys [x y val]}]
+         {:val val
+          :x x
+          :y (shift y shift-amt num-values)})
+       coords))
+
+(defmulti action (fn [acc c]
+                   (let [parts (split c #" ")]
+                     (cond
+                       (= (first parts) "rect") :rect
+                       (= (take 2 parts) ["rotate" "row"]) :rotate_row
+                       (= (take 2 parts) ["rotate" "column"]) :rotate_column))))
+
+(defmethod action :rect [acc c]
   (let [[x y] (-> c
                   (split #" ")
                   (second)
                   (split #"x"))]
     (reduce update-screen acc (build-rect-coords x y))))
 
-(defmethod action "rotate" [acc c]
-  (let [[_ x-or-y n shift] (re-find #"rotate \w+ ([x|y])=([0-9]+) by ([0-9]+)" c)
-        num-items ((keyword x-or-y) dimensions)
-        coords (map (fn [[x y]]
+; TODO clean/DRY up these two `action` definitions, this is super ugly/repetitive
+(defmethod action :rotate_row [acc c]
+  (let [[_ _ n shift-amt] (re-find #"rotate \w+ ([x|y])=([0-9]+) by ([0-9]+)" c)
+        num-items (:x dimensions)
+        coords (map (fn [x y]
                       {:x x :y y :val (get-in acc [y x])})
                     (range num-items)
-                    (repeatedly (constantly n)))]
-    (reduce update-screen acc (shift x-or-y n coords)))
-  acc)
+                    (repeatedly (constantly (Integer. n))))]
+    (reduce update-screen
+            acc
+            (shift-x num-items (Integer. shift-amt) coords))))
 
-; shift y: [y 0] [y 1] [y 2] ... 50 items
-; shift x: [0 x] [1 x] [2 x] ... 6 items
-;"rotate row y=0 by 6"
+(defmethod action :rotate_column [acc c]
+  (let [[_ _ n shift-amt] (re-find #"rotate \w+ ([x|y])=([0-9]+) by ([0-9]+)" c)
+        num-items (:y dimensions)
+        coords (map (fn [x y]
+                      {:x x :y y :val (get-in acc [y x])})
+                    (repeatedly (constantly (Integer. n)))
+                    (range num-items))]
+    (reduce update-screen
+            acc
+            (shift-y num-items (Integer. shift-amt) coords))))
 
-(defn shift [x-or-y n coords]
-  (map (fn [{:keys [x y val]}]
-         {:val val
-          :y y
-          :x (nth
-               (cycle (range (Integer. (x-or-y dimensions))))
-               (+ n x))})
-       coords))
+(defn show-screen [instructions]
+  (reduce action screen instructions))
 
-(reduce action screen instructions)
+(show-screen instructions)
+
+(defn num-pixels [screen]
+  (count
+    (filter #(= %1 "#") (flatten screen))))
+
+(num-pixels (show-screen instructions))
+
+; print screen
+; (doseq [row (reduce action screen instructions)]
+;   (prn row))
