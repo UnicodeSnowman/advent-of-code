@@ -10,8 +10,9 @@
     (if match
       [(nth match 1) (nth match 2)])))
 
-(defn compressed-length [compressed-data]
-  ((fn [cnt data]
+(defn compressed-length 
+  ([data] (compressed-length 0 data))
+  ([cnt data]
      (if (seq data)
        (let [[num-chars times] (get-marker data)]
               (if (and num-chars times)
@@ -21,8 +22,7 @@
                                 (Integer. num-chars))))
                 (recur (inc cnt)
                        (subs data 1))))
-       cnt))
-   0 compressed-data))
+       cnt)))
 
 ; ADVENT   : 6
 ; A(1x5)BC : 7
