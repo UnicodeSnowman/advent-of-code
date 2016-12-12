@@ -234,19 +234,30 @@
   "bot 48 gives low to bot 190 and high to bot 156"])
 
 
-(let [[_ giver-bot receive-low-bot receive-high-bot] (re-find #"bot ([0-9]+) gives low to bot ([0-9]+) and high to bot ([0-9]+)" "bot 48 gives low to bot 190 and high to bot 156")]
-  (prn giver-bot receive-low-bot receive-high-bot))
+
 ; can define values based on [1 :low] (i.e. [bot# low-or-high]), then
 ; recursively trace them back (perhaps at the end? or does it need to be
 ; done/cleaned up after each step?) to determine values
+
+(defmethod process-instruction :bot [acc instr]
+  ; TODO handle giving to output too...
+  (let [[_ giver-bot receive-low-bot receive-high-bot] (re-find #"bot ([0-9]+) gives low to [bot|output] ([0-9]+) and high to [bot|output] ([0-9]+)" instr)]
+    (prn giver-bot receive-low-bot receive-high-bot)))
+
+(defmethod process-instruction :value [acc instr]
+  (let [[_ value receive-bot] (re-find #"value ([0-9]+) goes to bot ([0-9]+)" instr)]
+    (prn value receive-bot)))
+
+(reduce process-instruction {} instructions)
+
 {
   2 { :values [2 5] :low 2 :high 5 }
-  1 { :values [2 3] :low 2 :high 3 }
-  0 { :values [3 5] :low 3 :high 5 }
+  1 { :values [[2 :low] 3] :low nil :high nil }
+  0 { :values [[2 :high]] :low nil :high nil }
 }
 
 {
- 0 [5]
- 1 [2]
- 2 [3]
+ 0 [[1 :high]]
+ 1 [[1 :low]]
+ 2 []
 }
