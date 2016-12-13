@@ -237,29 +237,60 @@
 ; recursively trace them back (perhaps at the end? or does it need to be
 ; done/cleaned up after each step?) to determine values
 
+; {
+;   2 { :values [2 5] :low 2 :high 5 }
+;   1 { :values [[2 :low] 3] :low nil :high nil }
+;   0 { :values [[2 :high]] :low nil :high nil }
+; }
+; 
+; {
+;  0 [[1 :high]]
+;  1 [[1 :low]]
+;  2 []
+; }
+(defmulti process-instruction (fn [acc instr]
+ (cond
+  (= (re-find #"^value" instr) "value") :value
+  (= (re-find #"^bot" instr) "bot") :bot)))
+
 (defmethod process-instruction :bot [acc instr]
-  ; TODO handle giving to output too...
-  (let [[_ giver-bot low-ident receive-low-id high-ident receive-high-id] (re-find #"bot ([0-9]+) gives low to (bot|output) ([0-9]+) and high to (bot|output) ([0-9]+)" instr)]
-    acc))
+  (let [[_ giver-bot low-ident receive-low-id high-ident receive-high-id] (re-find #"bot ([0-9]+) gives low to (bot|output) ([0-9]+) and high to (bot|output) ([0-9]+)" instr)
+        low-path [(keyword low-ident) (Integer. receive-low-id)]
+        high-path [(keyword high-ident) (Integer. receive-high-id)]]
+    (-> acc
+        (update-in (conj low-path :values) conj [(Integer. giver-bot) :low])
+        ;(update-in low-path assoc :low nil :high nil)
+        (update-in (conj high-path :values) conj [(Integer. giver-bot) :high]))))
+        ;(update-in high-path assoc :low nil :high nil))))
 
 (defmethod process-instruction :value [acc instr]
   (let [[_ value receive-bot] (re-find #"value ([0-9]+) goes to bot ([0-9]+)" instr)
-        path [:bots receive-bot :values]]
-    (assoc-in
-      acc
-      path
-      (conj (get-in acc path []) value))))
+        path [:bot (Integer. receive-bot)]]
+    (-> acc
+      (update-in (conj path :values) conj (Integer. value))
+      (update-in path
+                 (fn [hm & kvs]
+                   (let [values (:values hm)]
+                     (if (and
+                           (= (count values) 2)
+                           (every? integer? values))
+                       (assoc hm
+                              :low (apply min (mapv #(Integer. %) values))
+                              :high (apply max (mapv #(Integer. %) values)))
+                       (apply assoc hm kvs)))) :low nil :high nil))))
 
-(reduce process-instruction { :bots {} :output {} } instructions)
+(clojure.pprint/pprint (reduce process-instruction { :bot {} :output {} } instructions))
+(def results (reduce process-instruction { :bot {} :output {} } instructions))
+(prn results)
+(count (filter (fn [[k v]] (every? integer? (:values v))) (:bot results)))
 
-{
-  2 { :values [2 5] :low 2 :high 5 }
-  1 { :values [[2 :low] 3] :low nil :high nil }
-  0 { :values [[2 :high]] :low nil :high nil }
-}
+; is there a better way? this is rough...
 
-{
- 0 [[1 :high]]
- 1 [[1 :low]]
- 2 []
-}
+(defn normalize [results]
+  (let [rs (apply assoc {} (flatten (filter (fn [[k v]] (every? integer? (:values v))) (:bot results))))]
+    ; TODO also need to grab all entries matching `rs`
+    (if (< (count rs) (count results))
+      (recur (reduce #() results))
+      results)))
+
+
