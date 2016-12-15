@@ -282,15 +282,33 @@
 (clojure.pprint/pprint (reduce process-instruction { :bot {} :output {} } instructions))
 (def results (reduce process-instruction { :bot {} :output {} } instructions))
 (prn results)
-(count (filter (fn [[k v]] (every? integer? (:values v))) (:bot results)))
 
 ; is there a better way? this is rough...
+(def bots (:bot results))
+(count bots)
+(clojure.pprint/pprint (take 200 bots))
+(clojure.pprint/pprint (get bots 97))
 
-(defn normalize [results]
-  (let [rs (apply assoc {} (flatten (filter (fn [[k v]] (every? integer? (:values v))) (:bot results))))]
-    ; TODO also need to grab all entries matching `rs`
-    (if (< (count rs) (count results))
-      (recur (reduce #() results))
-      results)))
+(defn get-actual-value [path acc]
+  (if (integer? path)
+    path
+    (get-in acc path path)))
 
+(defn normalize [bots c]
+  (prn (count (flatten (mapv #(:values %) (vals bots)))))
+  (if (or
+       (> c 200)
+       (every? integer? (flatten (mapv #(:values %) (vals bots)))))
+    bots
+    (recur (reduce-kv (fn [acc k v]
+                  (let [first-val (get-actual-value (first (:values v)) acc)
+                        second-val (get-actual-value (second (:values v)) acc)
+                        values (list first-val second-val)]
+                      ;(prn (assoc acc k {:values values :low (apply min values) :high (apply max values)})))
+                    (if (every? integer? values)
+                      (assoc acc k {:values values :low (apply min values) :high (apply max values)})
+                      (assoc acc k v))))
+                {}
+                bots) (inc c))))
 
+(clojure.pprint/pprint (normalize bots 0))
