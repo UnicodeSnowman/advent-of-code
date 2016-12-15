@@ -233,21 +233,6 @@
   "bot 53 gives low to output 0 and high to bot 6"
   "bot 48 gives low to bot 190 and high to bot 156"])
 
-; can define values based on [1 :low] (i.e. [bot# low-or-high]), then
-; recursively trace them back (perhaps at the end? or does it need to be
-; done/cleaned up after each step?) to determine values
-
-; {
-;   2 { :values [2 5] :low 2 :high 5 }
-;   1 { :values [[2 :low] 3] :low nil :high nil }
-;   0 { :values [[2 :high]] :low nil :high nil }
-; }
-; 
-; {
-;  0 [[1 :high]]
-;  1 [[1 :low]]
-;  2 []
-; }
 (defmulti process-instruction (fn [acc instr]
  (cond
   (= (re-find #"^value" instr) "value") :value
@@ -259,9 +244,7 @@
         high-path [(keyword high-ident) (Integer. receive-high-id)]]
     (-> acc
         (update-in (conj low-path :values) conj [(Integer. giver-bot) :low])
-        ;(update-in low-path assoc :low nil :high nil)
         (update-in (conj high-path :values) conj [(Integer. giver-bot) :high]))))
-        ;(update-in high-path assoc :low nil :high nil))))
 
 (defmethod process-instruction :value [acc instr]
   (let [[_ value receive-bot] (re-find #"value ([0-9]+) goes to bot ([0-9]+)" instr)
@@ -279,36 +262,32 @@
                               :high (apply max (mapv #(Integer. %) values)))
                        (apply assoc hm kvs)))) :low nil :high nil))))
 
-(clojure.pprint/pprint (reduce process-instruction { :bot {} :output {} } instructions))
-(def results (reduce process-instruction { :bot {} :output {} } instructions))
-(prn results)
-
-; is there a better way? this is rough...
-(def bots (:bot results))
-(count bots)
-(clojure.pprint/pprint (take 200 bots))
-(clojure.pprint/pprint (get bots 97))
-
 (defn get-actual-value [path acc]
   (if (integer? path)
     path
     (get-in acc path path)))
 
-(defn normalize [bots c]
-  (prn (count (flatten (mapv #(:values %) (vals bots)))))
-  (if (or
-       (> c 200)
-       (every? integer? (flatten (mapv #(:values %) (vals bots)))))
+(defn normalize [bots]
+  (if (every? integer? (flatten (mapv #(:values %) (vals bots))))
     bots
     (recur (reduce-kv (fn [acc k v]
                   (let [first-val (get-actual-value (first (:values v)) acc)
                         second-val (get-actual-value (second (:values v)) acc)
                         values (list first-val second-val)]
-                      ;(prn (assoc acc k {:values values :low (apply min values) :high (apply max values)})))
                     (if (every? integer? values)
                       (assoc acc k {:values values :low (apply min values) :high (apply max values)})
                       (assoc acc k v))))
-                {}
-                bots) (inc c))))
+                bots
+                bots))))
 
-(clojure.pprint/pprint (normalize bots 0))
+(defn get-id-for [responsible-for instructions]
+  (->> instructions
+    (reduce process-instruction {:bot {} :output {}})
+    (:bot)
+    (normalize)
+    (filter (fn [[k v]] (= (sort (:values v)) responsible-for)))
+    (first)
+    (first)))
+
+(get-id-for '(17 61) instructions)
+
